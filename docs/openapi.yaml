@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: OrderFlow API
+  version: 1.0.0
+  description: Event-driven order, inventory, payment, and operations API.
+servers:
+  - url: http://localhost:4000
+paths:
+  /api/v1/orders:
+    get:
+      summary: List recent orders
+      responses:
+        "200": { description: Order collection }
+    post:
+      summary: Accept an idempotent asynchronous order
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrder" }
+      responses:
+        "202": { description: New order accepted }
+        "200": { description: Existing order replayed }
+        "409": { description: Key reused with different data }
+        "422": { description: Validation failed }
+  /api/v1/orders/{id}:
+    get:
+      summary: Read an order and its history
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Order found }
+        "404": { description: Order not found }
+  /api/v1/products:
+    get:
+      summary: List catalog and current inventory
+      responses:
+        "200": { description: Product collection }
+  /api/v1/ops:
+    get:
+      summary: Read queue, event, order, and DLQ diagnostics
+      responses:
+        "200": { description: Operational snapshot }
+  /api/v1/ops/dlq/{id}/redrive:
+    post:
+      summary: Redrive a dead-letter event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202": { description: Replacement event accepted }
+        "404": { description: Dead letter not found }
+components:
+  schemas:
+    CreateOrder:
+      type: object
+      additionalProperties: false
+      required: [customerId, sku, quantity, paymentToken]
+      properties:
+        customerId: { type: string, minLength: 1, maxLength: 100 }
+        sku: { type: string, enum: [SKU-RED, SKU-BLUE, SKU-GREEN] }
+        quantity: { type: integer, minimum: 1, maximum: 20 }
+        paymentToken: { type: string, enum: [tok_success, tok_retry_twice, tok_decline, tok_always_error] }

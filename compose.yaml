@@ -1,0 +1,17 @@
+services:
+  orderflow:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4000
+      DATA_DIR: /app/data
+      DEMO_MODE: "true"
+      MAX_DELIVERY_ATTEMPTS: 3
+    volumes:
+      - orderflow-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  orderflow-data:
