@@ -17,6 +17,7 @@
     "test:integration": "vitest run tests/integration tests/e2e/api.e2e.test.ts",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:docker:smoke": "node scripts/docker-smoke.mjs --restart",
     "verify": "npm run typecheck && npm run lint && npm run test:coverage && npm run build"
   },
   "engines": {

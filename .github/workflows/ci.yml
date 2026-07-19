@@ -12,8 +12,8 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -23,8 +23,8 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -32,9 +32,42 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - run: docker compose config --quiet
+      - run: docker compose build --pull
+      - run: docker compose up -d --wait --wait-timeout 60
+      - name: Verify runtime isolation
+        shell: bash
+        run: |
+          container_id="$(docker compose ps -q orderflow)"
+          test "$(docker compose exec -T orderflow id -u)" != "0"
+          test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$container_id")" = "true"
+          docker inspect --format '{{json .HostConfig.CapDrop}}' "$container_id" | grep -q '"ALL"'
+          docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$container_id" | grep -q 'no-new-privileges'
+          docker inspect --format '{{json .HostConfig.Tmpfs}}' "$container_id" | grep -q '"/tmp"'
+          test "$(docker compose port orderflow 4000)" = "127.0.0.1:4000"
+          docker compose exec -T orderflow sh -eu -c 'touch /app/data/.write-check /tmp/.write-check; rm /app/data/.write-check /tmp/.write-check'
+          if docker compose exec -T orderflow sh -c 'touch /app/.must-not-write' 2>/dev/null; then
+            echo 'Root filesystem unexpectedly accepted a write' >&2
+            exit 1
+          fi
+      - run: node scripts/docker-smoke.mjs --restart
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Remove container resources
+        if: always()
+        run: docker compose down --volumes --remove-orphans

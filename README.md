@@ -49,11 +49,26 @@ npm run verify
 npm run test:e2e
 ```
 
-Docker is optional:
+Docker is optional. The Compose profile builds the production image, binds it to
+localhost only, runs as a non-root user with all Linux capabilities dropped, and
+persists the four SQLite databases in the `orderflow-data` volume:
 
 ```bash
-docker compose up --build
+docker compose config --quiet
+docker compose up --build --wait
+node scripts/docker-smoke.mjs --restart
 ```
+
+Open [http://localhost:4000](http://localhost:4000). The smoke test exercises
+health checks, inventory, a retrying payment, idempotent order replay, graceful
+container restart, and database persistence. Stop the service without deleting
+its data with `docker compose down`; add `--volumes` only when you intentionally
+want to reset the demo databases.
+
+This SQLite deployment is intentionally single-replica. Before backing it up,
+stop the container cleanly so its database and WAL files are captured together.
+The image itself defaults `DEMO_MODE` to `false`; Compose enables the operations
+and DLQ controls explicitly for this localhost-only demonstration.
 
 ## Deterministic demo scenarios
 

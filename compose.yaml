@@ -1,8 +1,14 @@
+name: orderflow
+
 services:
   orderflow:
-    build: .
+    image: orderflow-platform:local
+    build:
+      context: .
+      target: runtime
+    init: true
     ports:
-      - "4000:4000"
+      - "127.0.0.1:${ORDERFLOW_PORT:-4000}:4000"
     environment:
       HOST: 0.0.0.0
       PORT: 4000
@@ -11,7 +17,16 @@ services:
       MAX_DELIVERY_ATTEMPTS: 3
     volumes:
       - orderflow-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
+    stop_grace_period: 15s
 
 volumes:
   orderflow-data:
+    name: orderflow-data

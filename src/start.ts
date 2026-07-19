@@ -17,11 +17,26 @@ const app = buildGateway(runtime.dependencies, {
 runtime.app = app
 runtime.startWorkers()
 
+let shuttingDown = false
 const shutdown = async (signal: string) => {
+  if (shuttingDown) return
+  shuttingDown = true
   app.log.info({ signal }, 'graceful shutdown started')
-  await app.close()
-  runtime.close()
-  process.exit(0)
+  runtime.stopWorkers()
+  const forcedExit = setTimeout(() => {
+    app.log.error({ signal }, 'graceful shutdown timed out')
+    process.exit(1)
+  }, 10_000)
+  try {
+    await app.close()
+    runtime.close()
+    process.exitCode = 0
+  } catch (error) {
+    app.log.error(error, 'graceful shutdown failed')
+    process.exitCode = 1
+  } finally {
+    clearTimeout(forcedExit)
+  }
 }
 
 process.on('SIGINT', () => void shutdown('SIGINT'))
