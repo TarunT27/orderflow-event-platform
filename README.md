@@ -1,6 +1,6 @@
 # OrderFlow — Event-Driven Order & Inventory Platform
 
-![OrderFlow event-driven commerce pipeline](docs/assets/orderflow-hero.png)
+![OrderFlow event-driven commerce pipeline](docs/assets/orderflow-hero-light.png)
 
 [![CI](https://github.com/TarunT27/orderflow-event-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/TarunT27/orderflow-event-platform/actions/workflows/ci.yml)
 
@@ -34,7 +34,7 @@ npm start
 
 Open [http://localhost:4000](http://localhost:4000). Runtime database files are created under `data/` and ignored by Git.
 
-![Live OrderFlow dashboard running the retry-twice scenario](docs/assets/dashboard.png)
+![Clean Apple-inspired OrderFlow operations dashboard](docs/assets/dashboard-apple.png)
 
 For backend watch mode after one web build:
 
@@ -133,7 +133,7 @@ See [API documentation](docs/api.md) and [OpenAPI](docs/openapi.yaml).
 
 ## Failure and incident demo
 
-![A poison event safely isolated in the dead-letter queue](docs/assets/dlq-incident.png)
+![A poison event safely isolated in the dead-letter queue](docs/assets/dlq-incident-light.png)
 
 Create an order with `tok_always_error`. After three delivery attempts, the payment command appears in the dashboard's incident panel. Review its correlation ID and sanitized error, then redrive it with the success override. The original dead letter remains an immutable audit record marked as redriven, while the replacement event carries a new ID and causation link.
 

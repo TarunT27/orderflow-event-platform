@@ -12,9 +12,6 @@ export function Hero() {
           Run an order <Icon name="arrow" size={18} />
         </a>
       </div>
-      <div className="hero__media">
-        <img src="/assets/orderflow-hero.png" alt="Order event flow illustration" />
-      </div>
     </section>
   )
 }

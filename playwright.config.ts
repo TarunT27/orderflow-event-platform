@@ -9,7 +9,7 @@ export default defineConfig({
   ...(process.env.CI ? { workers: 1 } : {}),
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4000',
+    baseURL: 'http://127.0.0.1:4510',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -19,8 +19,9 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm start',
-    url: 'http://127.0.0.1:4000/health/ready',
-    reuseExistingServer: !process.env.CI,
+    env: { PORT: '4510' },
+    url: 'http://127.0.0.1:4510/health/ready',
+    reuseExistingServer: false,
     timeout: 30_000,
   },
 })
