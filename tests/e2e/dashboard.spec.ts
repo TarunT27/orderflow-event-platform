@@ -145,7 +145,8 @@ test.describe('OrderFlow operations dashboard', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
 
-    await expect(page.getByRole('img', { name: 'Order event flow illustration' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Orders in motion. Operations in control.' })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
     await expect(page.getByRole('heading', { name: 'Inventory pulse' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Pulse Headphones' })).toBeVisible()
     await expect(page.getByLabel('Payment scenario').locator('option')).toHaveCount(4)
