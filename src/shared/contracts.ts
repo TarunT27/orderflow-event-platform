@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 export const paymentTokens = ['tok_success', 'tok_retry_twice', 'tok_decline', 'tok_always_error'] as const
 export type PaymentToken = (typeof paymentTokens)[number]
+export const paymentTokenSchema = z.enum(paymentTokens)
 
 export const products = [
   { sku: 'SKU-RED', name: 'Signal Lamp', description: 'A warm desk light for focused work.', unitPrice: 4900, initialStock: 10, accent: '#ff8a5b' },
@@ -16,7 +17,7 @@ export const createOrderSchema = z.object({
   customerId: z.string().trim().min(1).max(100),
   sku: skuSchema,
   quantity: z.number().int().min(1).max(20),
-  paymentToken: z.enum(paymentTokens),
+  paymentToken: paymentTokenSchema,
 })
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>

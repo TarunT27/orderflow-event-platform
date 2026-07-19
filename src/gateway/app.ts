@@ -42,9 +42,10 @@ export function buildGateway(dependencies: GatewayDependencies, options: Gateway
   app.get('/health/ready', async () => ({ data: { status: 'ready', queue: dependencies.bus.metrics() } }))
 
   app.get('/api/v1/products', async () => ({ data: dependencies.inventory.listProducts() }))
-  app.get('/api/v1/orders', async (request) => {
+  app.get('/api/v1/orders', async (request, reply) => {
     const query = z.object({ limit: z.coerce.number().int().min(1).max(100).default(50) }).safeParse(request.query)
-    return { data: dependencies.orders.list(query.success ? query.data.limit : 50) }
+    if (!query.success) return validationError(reply, query.error)
+    return { data: dependencies.orders.list(query.data.limit) }
   })
 
   app.get('/api/v1/orders/:id', async (request, reply) => {

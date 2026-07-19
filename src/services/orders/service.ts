@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import type { Database } from '../../shared/database.js'
 import { inTransaction } from '../../shared/database.js'
 import type { CreateOrderInput, EventEnvelope } from '../../shared/contracts.js'
@@ -129,6 +130,7 @@ export class OrderService {
   }
 
   handleEvent(event: EventEnvelope): void {
+    z.object({ orderId: z.string().uuid() }).parse(event.data)
     inTransaction(this.database, () => {
       if (!claimInbox(this.database, 'orders-saga', event.id)) return
       const row = this.database.prepare(`SELECT * FROM orders WHERE id = ?`).get(event.aggregateId) as unknown as OrderRow | undefined

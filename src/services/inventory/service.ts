@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import type { Database } from '../../shared/database.js'
 import { inTransaction } from '../../shared/database.js'
-import { createEvent, products, type EventEnvelope } from '../../shared/contracts.js'
+import { createEvent, products, skuSchema, type EventEnvelope } from '../../shared/contracts.js'
 import { addOutbox, claimInbox, initializeMessageStore } from '../../shared/messaging.js'
 
 export interface ProductStock {
@@ -40,6 +41,16 @@ interface ReservationRow {
   quantity: number | bigint
   status: Reservation['status']
 }
+
+const reserveInventorySchema = z.object({
+  orderId: z.string().uuid(),
+  sku: skuSchema,
+  quantity: z.number().int().min(1).max(20),
+})
+
+const releaseInventorySchema = z.object({
+  orderId: z.string().uuid(),
+})
 
 export class InventoryService {
   constructor(private readonly database: Database) {
@@ -95,11 +106,10 @@ export class InventoryService {
   }
 
   private reserve(event: EventEnvelope): void {
+    const command = reserveInventorySchema.parse(event.data)
     inTransaction(this.database, () => {
       if (!claimInbox(this.database, 'inventory-worker', event.id)) return
-      const orderId = String(event.data.orderId)
-      const sku = String(event.data.sku)
-      const quantity = Number(event.data.quantity)
+      const { orderId, sku, quantity } = command
       const existing = this.database.prepare(`SELECT id FROM reservations WHERE order_id = ?`).get(orderId)
       if (existing) return
       const product = this.database.prepare(`SELECT * FROM products WHERE sku = ?`).get(sku) as unknown as ProductRow | undefined
@@ -138,13 +148,15 @@ export class InventoryService {
   }
 
   private release(event: EventEnvelope): void {
+    const command = releaseInventorySchema.parse(event.data)
     inTransaction(this.database, () => {
       if (!claimInbox(this.database, 'inventory-worker', event.id)) return
-      const orderId = String(event.data.orderId)
+      const { orderId } = command
       const reservation = this.database.prepare(`SELECT * FROM reservations WHERE order_id = ?`).get(orderId) as unknown as ReservationRow | undefined
       if (!reservation || reservation.status === 'RELEASED') return
       const now = new Date().toISOString()
-      this.database.prepare(`UPDATE products SET reserved = reserved - ? WHERE sku = ? AND reserved >= ?`).run(reservation.quantity, reservation.sku, reservation.quantity)
+      const stockUpdate = this.database.prepare(`UPDATE products SET reserved = reserved - ? WHERE sku = ? AND reserved >= ?`).run(reservation.quantity, reservation.sku, reservation.quantity)
+      if (stockUpdate.changes !== 1) throw new Error(`Inventory invariant violation while releasing reservation ${reservation.id}`)
       this.database.prepare(`UPDATE reservations SET status = 'RELEASED', updated_at = ? WHERE id = ? AND status = 'RESERVED'`).run(now, reservation.id)
       addOutbox(this.database, createEvent({
         topic: 'inventory.released',

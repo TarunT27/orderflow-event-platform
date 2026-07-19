@@ -96,7 +96,7 @@ describe('HTTP API', () => {
     expect(live.json()).toMatchObject({ data: { status: 'ok' } })
     expect(ready.json()).toMatchObject({ data: { status: 'ready' } })
     expect(products.json().data).toHaveLength(3)
-    expect(orders.json().data).toEqual([])
+    expect(orders.statusCode).toBe(422)
     expect(metrics.headers['content-type']).toContain('text/plain')
     expect(metrics.body).toContain('orderflow_queue_messages')
   })

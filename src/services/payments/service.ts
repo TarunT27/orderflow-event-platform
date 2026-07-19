@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import type { Database } from '../../shared/database.js'
 import { inTransaction } from '../../shared/database.js'
-import { createEvent, type EventEnvelope, type PaymentToken } from '../../shared/contracts.js'
+import { createEvent, paymentTokenSchema, type EventEnvelope } from '../../shared/contracts.js'
 import { addOutbox, claimInbox, initializeMessageStore } from '../../shared/messaging.js'
 import { RetryableError } from '../../shared/retry.js'
 
@@ -22,6 +23,13 @@ interface PaymentRow {
   status: Payment['status']
   created_at: string
 }
+
+const paymentCommandSchema = z.object({
+  orderId: z.string().uuid(),
+  amount: z.number().int().nonnegative(),
+  currency: z.literal('USD'),
+  paymentToken: paymentTokenSchema,
+})
 
 export class PaymentService {
   constructor(private readonly database: Database) {
@@ -60,8 +68,12 @@ export class PaymentService {
 
   handleEvent(event: EventEnvelope): void {
     if (event.topic !== 'payment.process.requested') return
-    const orderId = String(event.data.orderId)
-    const token = String(event.data.paymentToken) as PaymentToken
+    const command = paymentCommandSchema.parse(event.data)
+    const orderId = command.orderId
+    const token = command.paymentToken
+    // A payment ledger row is the semantic idempotency guard. Check it before
+    // counting a delivery so redelivery after commit cannot inflate attempts.
+    if (this.getByOrderId(orderId)) return
     const attempt = this.recordAttempt(orderId)
     if (token === 'tok_retry_twice' && attempt <= 2) throw new RetryableError(`Simulated payment timeout on attempt ${attempt}`)
     if (token === 'tok_always_error') throw new RetryableError(`Simulated payment provider outage on attempt ${attempt}`)
@@ -74,7 +86,7 @@ export class PaymentService {
       const now = new Date().toISOString()
       this.database.prepare(`
         INSERT INTO payments(id, order_id, amount, currency, status, created_at) VALUES (?, ?, ?, 'USD', ?, ?)
-      `).run(paymentId, orderId, Number(event.data.amount), status, now)
+      `).run(paymentId, orderId, command.amount, status, now)
       addOutbox(this.database, createEvent({
         topic: status === 'APPROVED' ? 'payment.completed' : 'payment.failed',
         source: 'payments',
